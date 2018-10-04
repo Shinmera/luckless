@@ -9,10 +9,15 @@
   (:use #:cl)
   (:export
    #:caslist
+   #:to-list
+   #:mapc*
+   #:first*
+   #:nth*
+   #:length*
    #:push*
    #:delete*
    #:member*))
-(in-package #:luckless-list)
+(in-package #:org.shirakumo.luckless.list)
 
 (defstruct (cons*
             (:constructor cons* (car* cdr*))
@@ -33,10 +38,7 @@
 
 (defmethod print-object ((list caslist) stream)
   (print-unreadable-object (list stream :type T :identity T)
-    (loop for cons = (cdr* (head list)) then (cdr* cons)
-          until (eq cons (tail list))
-          do (when (= 1 (valid cons))
-               (format stream "~a " (car* cons))))))
+    (mapc* (lambda (value) (format stream "~a " value)) list)))
 
 (defun caslist (&rest values)
   (let ((list (%make-caslist)))
@@ -45,6 +47,48 @@
           for value in values
           do (setf (cdr* cons) (cons* value (tail list))))
     list))
+
+(defun first* (list)
+  (mapc* (lambda (value) (return-from first* value))
+         list)
+  NIL)
+
+(defun nth* (n list)
+  (let ((i 0))
+    (mapc* (lambda (value)
+             (when (= i n)
+               (return-from nth* value))
+             (incf i))
+           list)
+    NIL))
+
+(defun mapc* (function list)
+  (declare (type caslist list))
+  (loop for cons = (cdr* (head list)) then (cdr* cons)
+        until (eq cons (tail list))
+        do (when (= 1 (valid cons))
+             (funcall function (car* cons))))
+  list)
+
+(defun length* (list)
+  (let ((i 0))
+    (mapc* (lambda (_)
+             (declare (ignore _))
+             (incf i))
+           list)
+    i))
+
+(defun to-list (list)
+  (declare (type caslist list))
+  (let* ((sentinel (cons NIL NIL))
+         (head sentinel))
+    (mapc* (lambda (value)
+             (setf sentinel
+                   (setf (cdr sentinel) (list value))))
+           list)
+    (cdr head)))
+
+;; FIXME: Lots of other ops to add: append, conc, mapcar, map-into, replace, etc.
 
 (defun push* (value list)
   (declare (type caslist list))
@@ -61,7 +105,7 @@
   (let ((tail (tail list)))
     (loop (multiple-value-bind (right left) (search-cons value list)
             (when (or (eq right tail) (not (eql value (car* right))))
-              (return NIL))
+              (return list))
             (let ((next (cdr* right)))
               (when (and (= 1 (valid right))
                          (sb-ext:cas (valid right) 1 0))
