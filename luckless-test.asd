@@ -4,16 +4,17 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(asdf:defsystem luckless
+(asdf:defsystem luckless-test
   :version "1.0.0"
   :license "Artistic"
   :author "Nicolas Hafner <shinmera@tymoon.eu>"
   :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
-  :description "Lockless data structures"
+  :description "Test suite for Luckless"
   :homepage "https://shinmera.github.io/luckless/"
   :bug-tracker "https://github.com/Shinmera/luckless/issues"
   :source-control (:git "https://github.com/Shinmera/luckless.git")
   :serial T
-  :components ()
-  :depends-on (:luckless-list)
-  :in-order-to ((asdf:test-op (asdf:test-op :luckless-test))))
+  :components ((:file "tests"))
+  :depends-on (:luckless
+               :parachute)
+  :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test :luckless-test)))
