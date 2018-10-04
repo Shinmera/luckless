@@ -16,5 +16,6 @@
   :serial T
   :components ((:file "tests"))
   :depends-on (:luckless
-               :parachute)
+               :parachute
+               :bordeaux-threads)
   :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test :luckless-test)))

@@ -42,3 +42,37 @@
   (is list= '(1 3) (luckless-list:delete* 2 (luckless-list:caslist 1 2 3)))
   (is list= '(2 2) (luckless-list:delete* 2 (luckless-list:caslist 2 2 2)))
   (is list= '(1 2 3) (luckless-list:delete* 5 (luckless-list:caslist 1 2 3))))
+
+(defun spawn-threads (n function)
+  (loop for i from 0 below n
+        collect (bt:make-thread function :name (format NIL "~dth test thread" i))))
+
+(defun finish-threads (&rest threads)
+  (loop for thread in threads
+        do (if (listp thread)
+               (mapc #'bt:join-thread thread)
+               (bt:join-thread thread))))
+
+(define-test list-multi-threaded
+  :parent list
+  :depends-on (list-single-threaded)
+  (flet ((make-list-parallel ()
+           (let ((list (luckless-list:caslist)))
+             (finish-threads
+              (spawn-threads 10 (lambda ()
+                                  (loop repeat 100 do (luckless-list:push* 0 list)))))
+             list))
+         (make-delete-parallel ()
+           (let ((list (luckless-list:caslist)))
+             (finish-threads
+              (spawn-threads 10 (lambda ()
+                                  (loop repeat 100 do (luckless-list:push* 0 list))))
+              (spawn-threads 10 (lambda ()
+                                  (loop repeat 100 do (luckless-list:push* 1 list))))
+              (spawn-threads 10 (lambda ()
+                                  (loop repeat 100 do (luckless-list:delete* 1 list)))))
+             list)))
+    (finish (make-list-parallel))
+    (is = 1000 (luckless-list:length* (make-list-parallel)))
+    (is = 0 (reduce #'+ (luckless-list:to-list (make-list-parallel))))
+    (is = 0 (reduce #'+ (luckless-list:to-list (make-delete-parallel))))))
