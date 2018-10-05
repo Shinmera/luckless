@@ -14,10 +14,13 @@
   `(excl:atomic-conditional-setf ,place ,new ,old)
   #+ccl
   `(ccl::conditional-store ,place ,old ,new)
+  #+ecl
+  (let ((tmp (gensym "OLD")))
+    `(let ((,tmp ,old)) (eq ,tmp (mp:compare-and-swap ,place ,tmp ,new))))
   #+lispworks
   `(system:compare-and-swap ,place ,old ,new)
   #+sbcl
   (let ((tmp (gensym "OLD")))
     `(let ((,tmp ,old)) (eql ,tmp (sb-ext:cas ,place ,tmp ,new))))
-  #-(or allegro ccl lispworks sbcl)
+  #-(or allegro ecl ccl lispworks sbcl)
   (error "Implementation not supported."))
