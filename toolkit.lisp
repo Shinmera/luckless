@@ -9,7 +9,8 @@
 (defmacro cas (place old new)
   ;; WARNING: This is for internal use ONLY.
   ;;          It makes some assumptions about the arguments for speed reasons.
-  ;;          Most importantly, PLACE must be a struct slot accessor function.
+  ;;          Most importantly, PLACE must be a struct slot accessor function,
+  ;;          or svref.
   #+allegro
   `(excl:atomic-conditional-setf ,place ,new ,old)
   #+ccl

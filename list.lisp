@@ -2,6 +2,11 @@
  This file is a part of Luckless
  (c) 2018 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
  Author: Nicolas Hafner <shinmera@tymoon.eu>
+
+ This implementation is based on
+   A Pragmatic Implementation of Non-Blocking Linked-Lists
+   Timothy L. Harris, Univeristy of Cambridge, 2001
+     https://timharris.uk/papers/2001-disc.pdf
 |#
 
 (in-package #:org.shirakumo.luckless)
@@ -90,6 +95,8 @@
   (declare (optimize speed))
   (let ((new (cons* value NIL))
         (left (head list)))
+    ;; FIXME: maybe search-cons for first would be better so that push can help
+    ;;        clear up invalid conses.
     (loop for right = (cdr* left)
           do (setf (cdr* new) right)
           until (cas (cdr* left) right new))

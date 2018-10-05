@@ -16,6 +16,7 @@
   :serial T
   :components ((:file "package")
                (:file "toolkit")
-               (:file "list"))
+               (:file "list")
+               (:file "hashtable"))
   :depends-on (:documentation-utils)
   :in-order-to ((asdf:test-op (asdf:test-op :luckless-test))))
