@@ -24,7 +24,7 @@
             (:conc-name NIL))
   (car* NIL :type T)
   (cdr* NIL :type (or null cons*))
-  (valid 1 :type (integer 0 1)))
+  (valid 1 :type bit))
 
 (defmethod print-object ((cons cons*) stream)
   (print-unreadable-object (cons stream :type T :identity T)
