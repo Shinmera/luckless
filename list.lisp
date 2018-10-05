@@ -109,7 +109,7 @@
             (let ((next (cdr* right)))
               (when (and (= 1 (valid right))
                          (sb-ext:cas (valid right) 1 0))
-                (unless (sb-ext:cas (cdr* left) right next)
+                (unless (eq (sb-ext:cas (cdr* left) right next) right)
                   (search-cons (car* right) list))
                 (return list)))))))
 
