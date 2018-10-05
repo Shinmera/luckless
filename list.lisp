@@ -4,20 +4,7 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(defpackage #:luckless-list
-  (:nicknames #:org.shirakumo.luckless.list)
-  (:use #:cl)
-  (:export
-   #:caslist
-   #:to-list
-   #:mapc*
-   #:first*
-   #:nth*
-   #:length*
-   #:push*
-   #:delete*
-   #:member*))
-(in-package #:org.shirakumo.luckless.list)
+(in-package #:org.shirakumo.luckless)
 
 (defstruct (cons*
             (:constructor cons* (car* cdr*))
@@ -41,6 +28,7 @@
     (mapc* (lambda (value) (format stream "~a " value)) list)))
 
 (defun caslist (&rest values)
+  (declare (optimize speed))
   (let ((list (%make-caslist)))
     (setf (cdr* (head list)) (tail list))
     (loop for cons = (head list) then (cdr* cons)
@@ -48,12 +36,25 @@
           do (setf (cdr* cons) (cons* value (tail list))))
     list))
 
+(declaim (inline mapc*))
+(defun mapc* (function list)
+  (declare (type caslist list))
+  (declare (optimize speed))
+  (loop for cons = (cdr* (head list)) then (cdr* cons)
+        until (eq cons (tail list))
+        do (when (= 1 (valid cons))
+             (funcall function (car* cons))))
+  list)
+
 (defun first* (list)
+  (declare (optimize speed))
   (mapc* (lambda (value) (return-from first* value))
          list)
   NIL)
 
 (defun nth* (n list)
+  (declare (type unsigned-byte n))
+  (declare (optimize speed))
   (let ((i 0))
     (mapc* (lambda (value)
              (when (= i n)
@@ -62,15 +63,8 @@
            list)
     NIL))
 
-(defun mapc* (function list)
-  (declare (type caslist list))
-  (loop for cons = (cdr* (head list)) then (cdr* cons)
-        until (eq cons (tail list))
-        do (when (= 1 (valid cons))
-             (funcall function (car* cons))))
-  list)
-
 (defun length* (list)
+  (declare (optimize speed))
   (let ((i 0))
     (mapc* (lambda (_)
              (declare (ignore _))
@@ -80,6 +74,7 @@
 
 (defun to-list (list)
   (declare (type caslist list))
+  (declare (optimize speed))
   (let* ((sentinel (cons NIL NIL))
          (head sentinel))
     (mapc* (lambda (value)
@@ -92,35 +87,38 @@
 
 (defun push* (value list)
   (declare (type caslist list))
+  (declare (optimize speed))
   (let ((new (cons* value NIL))
         (left (head list)))
     (loop for right = (cdr* left)
           do (setf (cdr* new) right)
-          until (eq (sb-ext:cas (cdr* left) right new)
-                    right))
+          until (cas (cdr* left) right new))
     list))
 
 (defun delete* (value list)
   (declare (type caslist list))
+  (declare (optimize speed))
   (let ((tail (tail list)))
     (loop (multiple-value-bind (right left) (search-cons value list)
             (when (or (eq right tail) (not (eql value (car* right))))
               (return list))
             (let ((next (cdr* right)))
               (when (and (= 1 (valid right))
-                         (sb-ext:cas (valid right) 1 0))
-                (unless (eq (sb-ext:cas (cdr* left) right next) right)
+                         (cas (valid right) 1 0))
+                (unless (cas (cdr* left) right next)
                   (search-cons (car* right) list))
                 (return list)))))))
 
 (defun member* (value list)
   (declare (type caslist list))
+  (declare (optimize speed))
   (let ((right (search-cons value list)))
     (and (not (eq right (tail list)))
          (eql (car* right) value))))
 
 (defun search-cons (value list)
   (declare (type caslist list))
+  (declare (optimize speed (safety 0)))
   (let* ((tail (tail list))
          (right tail)
          (left tail)
@@ -137,11 +135,8 @@
                   while (or (= 0 (valid cons))
                             (not (eql (car* cons) value))))
             (setf right cons)
-            (cond ((eq left-next right)
-                   (when (or (eq right tail)
-                             (= 1 (valid right)))
-                     (return (values right left))))
-                  ((eq (sb-ext:cas (cdr* left) left-next right) left-next)
-                   (when (or (eq right tail)
-                             (= 1 (valid right)))
-                     (return (values right left)))))))))
+            (when (or (eq left-next right)
+                      (cas (cdr* left) left-next right))
+              (when (or (eq right tail)
+                        (= 1 (valid right)))
+                (return (values right left))))))))

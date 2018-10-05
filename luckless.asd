@@ -14,6 +14,8 @@
   :bug-tracker "https://github.com/Shinmera/luckless/issues"
   :source-control (:git "https://github.com/Shinmera/luckless.git")
   :serial T
-  :components ()
-  :depends-on (:luckless-list)
+  :components ((:file "package")
+               (:file "toolkit")
+               (:file "list"))
+  :depends-on (:documentation-utils)
   :in-order-to ((asdf:test-op (asdf:test-op :luckless-test))))
