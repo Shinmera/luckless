@@ -4,7 +4,7 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(in-package #:org.shirakumo.luckless)
+(in-package #:org.shirakumo.luckless.tools)
 
 (defmacro cas (place old new)
   ;; WARNING: This is for internal use ONLY.

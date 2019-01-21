@@ -4,9 +4,14 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(defpackage #:luckless
-  (:nicknames #:org.shirakumo.luckless)
+(defpackage #:luckless-tools
+  (:nicknames #:org.shirakumo.luckless.list)
+  (:use #:cl))
+
+(defpackage #:luckless-list
+  (:nicknames #:org.shirakumo.luckless.list)
   (:use #:cl)
+  (:import-from #:luckless-tools #:cas)
   (:export
    #:caslist
    #:to-list
@@ -17,3 +22,9 @@
    #:push*
    #:delete*
    #:member*))
+
+(defpackage #:luckless-hashtable
+  (:nicknames #:org.shirakumo.luckless.hashtable)
+  (:use #:cl)
+  (:import-from #:luckless-tools #:cas)
+  (:export))

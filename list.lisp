@@ -9,7 +9,7 @@
      https://timharris.uk/papers/2001-disc.pdf
 |#
 
-(in-package #:org.shirakumo.luckless)
+(in-package #:org.shirakumo.luckless.list)
 
 (defstruct (cons*
             (:constructor cons* (car* cdr*))
