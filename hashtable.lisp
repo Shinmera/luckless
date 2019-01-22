@@ -11,11 +11,19 @@
 
 (in-package #:org.shirakumo.luckless.hashtable)
 
-(deftype long () '(signed-byte 64))
-(deftype int () '(signed-byte 32))
 (defconstant max-spin 2)
 (defconstant global-hash (sxhash (get-universal-time)))
-(defconstant LONG-MIN (- (expt 2 63)))
+(defconstant long-min (- (expt 2 63)))
+(defconstant reprobe-limit 10)
+(defconstant min-size-log 3)
+(defconstant min-size (ash 1 min-size-log))
+(defconstant no-match-old 'no-match-old)
+(defconstant match-any 'match-any)
+(defconstant tombstone 'tombstone)
+(defconstant tombprime (if (boundp 'tombprime) tombprime (prime tombstone)))
+
+(deftype long () '(signed-byte 64))
+(deftype int () '(signed-byte 32))
 
 (defun rehash (h)
   (incf h (logior (ash h 15) #xffffcd7d))
@@ -120,19 +128,15 @@
             (:constructor prime (value)))
   (value NIL :type T))
 
-(defconstant min-size-log 3)
-(defconstant min-size (ash 1 min-size-log))
-(defconstant no-match-old 'no-match-old)
-(defconstant match-any 'match-any)
-(defconstant tombstone 'tombstone)
-(defconstant tombprime (if (boundp 'tombprime) tombprime (prime tombstone)))
-
 (defstruct (chm
             (:constructor make-chm (%size)))
   (%size NIL :type counter)
   (%slots (make-counter) :type counter)
   (%newkvs NIL :type (or null simple-vector))
   (%resizers 0 :type long))
+
+(defun chm-size (chm)
+  (counter-value (chm-%size chm)))
 
 (defstruct (castable
             (:constructor %make-castable (%kvs %last-resize))
@@ -171,3 +175,27 @@
 
 (defun cas-val (kvs idx old val)
   (cas (svref kvs (+ 3 (ash idx 1))) old val))
+
+(defun reprobes (table)
+  (prog1 (counter-value (%reprobes table))
+    (setf (%reprobes (make-counter)))))
+
+(defun reprobe-limit (len)
+  (+ REPROBE-LIMIT (ash len -2)))
+
+(defun make-castable (&optional size)
+  (let ((size (max MIN-SIZE (* 1024 1022) (or size 0))))
+    (let ((i MIN-SIZE-LOG))
+      (loop while (< (ash 1 i) (ash size 2))
+            do (incf i))
+      (let ((kvs (make-array (+ 2 (ash (ash 1 i) 1)))))
+        (setf (svref kvs 0) (make-chm (make-counter)))
+        (setf (svref kvs 1) (ash 1 i))
+        (%make-castable kvs (get-internal-real-time))))))
+
+(defun size (table)
+  (chm-size (chm (%kvs table))))
+
+(defun empty-p (table)
+  (= 0 (size table)))
+
