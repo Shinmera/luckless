@@ -8,6 +8,8 @@
   (:nicknames #:org.shirakumo.luckless.list)
   (:use #:cl))
 
+;; FIXME: replace stars with shadowing
+
 (defpackage #:luckless-list
   (:nicknames #:org.shirakumo.luckless.list)
   (:use #:cl)
