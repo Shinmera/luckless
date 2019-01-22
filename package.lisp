@@ -30,4 +30,10 @@
 (defpackage #:luckless-hashtable
   (:nicknames #:org.shirakumo.luckless.hashtable)
   (:use #:cl #:org.shirakumo.luckless.tools)
-  (:export))
+  (:export
+   #:make-castable
+   #:castable
+   #:size
+   #:gethash*
+   #:remhash*
+   #:clrhash*))

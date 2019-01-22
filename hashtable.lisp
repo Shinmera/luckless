@@ -102,30 +102,40 @@
          (%t (%cat-table cat))
          (idx (logand global-hash (1- (length %t))))
          (old (svref %t idx))
+         ;; Try once quickly
          (ok (cas (svref %t idx) (logand old (lognot mask)) (+ old x))))
-    (flet ((done () (return-from counter-add-if-mask old)))
+    (flet ((fail () (return-from counter-add-if-mask old)))
+      ;; Clear the cache
       (when (/= (%cat-sum-cache cat) most-negative-fixnum)
         (setf (%cat-sum-cache cat) most-negative-fixnum))
       (when ok (done))
-      (when (/= 0 (logand old mask)) (done))
+      (when (/= 0 (logand old mask)) (fail))
+      ;; Try some more
       (let ((cnt 0))
         (loop (setf old (svref %t idx))
-              (when (/= 0 (logand old mask)) (done))
+              (when (/= 0 (logand old mask)) (fail))
               (when (cas (svref %t idx) old (+ old x)) (return))
               (incf cnt))
-        (when (< cnt MAX-SPIN) (done))
-        (when (<= (* 1024 1024) (length %t)) (done))
+        ;; Make sure we don't spin too long
+        (when (< cnt MAX-SPIN) (fail))
+        ;; Or grow too big
+        (when (<= (* 1024 1024) (length %t)) (fail))
+        ;; We are contending too much, increase the size in hopes it'll help
         (let ((r (%cat-resizers cat))
               (newbytes (ash (ash (length %t) 1) 4)))
           (loop while (not (cas (%cat-resizers cat) r (+ r newbytes)))
                 do (setf r (%cat-resizers cat)))
           (incf r newbytes)
+          ;; Already doubled up, don't bother
           (unless (eql cat (%counter-cat counter))
-            (done))
+            (fail))
+          ;; Did we try to allocate too often already?
           (when (/= 0 (ash r -17))
             (sleep (ash r -17))
             (unless (eql cat (%counter-cat counter))
-              (done)))
+              (fail)))
+          ;; Try to extend the CAT once, if it fails another thread
+          ;; already did it for us so we don't have to retry.
           (let ((new (make-cat cat (* (length %t) 2) 0)))
             (cas (%counter-cat counter) cat new)
             old))))))
@@ -222,16 +232,16 @@
              #+sbcl (third (find test sb-impl::*user-hash-table-tests* :key #'second))))
       (error "Don't know a hasher for ~a." test)))
 
-(defun make-castable (&key test size hasher)
-  (let* ((size (max MIN-SIZE (* 1024 1022) (or size 0)))
+(defun make-castable (&key test size hash-function)
+  (let* ((size (min (* 1024 1024) (max MIN-SIZE (or size 0))))
          (test (etypecase test
                  (null #'eql)
                  (function test)
                  (symbol (fdefinition test))))
-         (hasher (etypecase hasher
+         (hasher (etypecase hash-function
                    (null (determine-hasher test))
-                   (function hasher)
-                   (symbol (fdefinition hasher)))))
+                   (function hash-function)
+                   (symbol (fdefinition hash-function)))))
     (let ((i MIN-SIZE-LOG))
       (loop while (< (ash 1 i) (ash size 2))
             do (incf i))

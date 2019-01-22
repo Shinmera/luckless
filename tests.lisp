@@ -6,7 +6,18 @@
 
 (defpackage #:luckless-test
   (:nicknames #:org.shirakumo.luckless.test)
-  (:use #:cl #:parachute))
+  (:local-nicknames
+   (#:caslist #:org.shirakumo.luckless.list)
+   (#:castable #:org.shirakumo.luckless.hashtable))
+  (:use #:cl #:parachute)
+  (:export
+   #:luckless
+   #:caslist
+   #:caslist-single-threaded
+   #:caslist-multi-threaded
+   #:castable
+   #:castable-single-threaded
+   #:castable-multi-threaded))
 (in-package #:org.shirakumo.luckless.test)
 
 (defun spawn-threads (n function)
@@ -21,54 +32,70 @@
 
 (define-test luckless)
 
-(define-test list
+(define-test caslist
   :parent luckless)
 
 (defun list= (caslist list)
-  (equal list (luckless-list:to-list caslist)))
+  (equal list (caslist:to-list caslist)))
 
-(define-test list-single-threaded
-  :parent list
-  (of-type luckless-list:caslist (luckless-list:caslist))
-  (is eql NIL (luckless-list:first* (luckless-list:caslist)))
-  (is = 1 (luckless-list:first* (luckless-list:caslist 1)))
-  (is = 1 (luckless-list:nth* 0 (luckless-list:caslist 1)))
-  (is = 3 (luckless-list:nth* 2 (luckless-list:caslist 1 2 3)))
-  (is eql NIL (luckless-list:nth* 3 (luckless-list:caslist 1 2 3)))
-  (is = 0 (luckless-list:length* (luckless-list:caslist)))
-  (is = 3 (luckless-list:length* (luckless-list:caslist 1 2 3)))
-  (is equal '() (luckless-list:to-list (luckless-list:caslist)))
-  (is equal '(1 2 3) (luckless-list:to-list (luckless-list:caslist 1 2 3)))
-  (is eql T (luckless-list:member* 1 (luckless-list:caslist 1 2 3)))
-  (is eql T (luckless-list:member* 2 (luckless-list:caslist 1 2 3)))
-  (is eql NIL (luckless-list:member* 5 (luckless-list:caslist 1 2 3)))
-  (is list= '(0) (luckless-list:push* 0 (luckless-list:caslist)))
-  (is list= '(0 1 2 3) (luckless-list:push* 0 (luckless-list:caslist 1 2 3)))
-  (is list= '(0 1 2 3) (let ((l (luckless-list:caslist 1 2 3)))
-                         (luckless-list:push* 0 l)
+(define-test caslist-single-threaded
+  :parent caslist
+  (of-type caslist:caslist (caslist:caslist))
+  (is eql NIL (caslist:first* (caslist:caslist)))
+  (is = 1 (caslist:first* (caslist:caslist 1)))
+  (is = 1 (caslist:nth* 0 (caslist:caslist 1)))
+  (is = 3 (caslist:nth* 2 (caslist:caslist 1 2 3)))
+  (is eql NIL (caslist:nth* 3 (caslist:caslist 1 2 3)))
+  (is = 0 (caslist:length* (caslist:caslist)))
+  (is = 3 (caslist:length* (caslist:caslist 1 2 3)))
+  (is equal '() (caslist:to-list (caslist:caslist)))
+  (is equal '(1 2 3) (caslist:to-list (caslist:caslist 1 2 3)))
+  (is eql T (caslist:member* 1 (caslist:caslist 1 2 3)))
+  (is eql T (caslist:member* 2 (caslist:caslist 1 2 3)))
+  (is eql NIL (caslist:member* 5 (caslist:caslist 1 2 3)))
+  (is list= '(0) (caslist:push* 0 (caslist:caslist)))
+  (is list= '(0 1 2 3) (caslist:push* 0 (caslist:caslist 1 2 3)))
+  (is list= '(0 1 2 3) (let ((l (caslist:caslist 1 2 3)))
+                         (caslist:push* 0 l)
                          l))
-  (is list= '(1 1 2 3) (luckless-list:push* 1 (luckless-list:caslist 1 2 3)))
-  (is list= '(2 3) (luckless-list:delete* 1 (luckless-list:caslist 1 2 3)))
-  (is list= '(1 3) (luckless-list:delete* 2 (luckless-list:caslist 1 2 3)))
-  (is list= '(2 2) (luckless-list:delete* 2 (luckless-list:caslist 2 2 2)))
-  (is list= '(1 2 3) (luckless-list:delete* 5 (luckless-list:caslist 1 2 3))))
+  (is list= '(1 1 2 3) (caslist:push* 1 (caslist:caslist 1 2 3)))
+  (is list= '(2 3) (caslist:delete* 1 (caslist:caslist 1 2 3)))
+  (is list= '(1 3) (caslist:delete* 2 (caslist:caslist 1 2 3)))
+  (is list= '(2 2) (caslist:delete* 2 (caslist:caslist 2 2 2)))
+  (is list= '(1 2 3) (caslist:delete* 5 (caslist:caslist 1 2 3))))
 
-(define-test list-multi-threaded
-  :parent list
-  :depends-on (list-single-threaded)
+(define-test caslist-multi-threaded
+  :parent caslist
+  :depends-on (caslist-single-threaded)
   (flet ((make-list-parallel ()
-           (let ((list (luckless-list:caslist)))
+           (let ((list (caslist:caslist)))
              (finish-threads
-              (spawn-threads 2 (lambda () (loop repeat 100000 do (luckless-list:push* 0 list)))))
+              (spawn-threads 2 (lambda () (loop repeat 100000 do (caslist:push* 0 list)))))
              list))
          (make-delete-parallel ()
-           (let ((list (luckless-list:caslist)))
+           (let ((list (caslist:caslist)))
              (finish-threads
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (luckless-list:push* 0 list))))
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (luckless-list:push* 1 list))))
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (luckless-list:delete* 1 list)))))
+              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:push* 0 list))))
+              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:push* 1 list))))
+              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:delete* 1 list)))))
              list)))
     (finish (make-list-parallel))
-    (is = 200000 (luckless-list:length* (make-list-parallel)))
-    (is = 0 (reduce #'+ (luckless-list:to-list (make-list-parallel))))
-    (is = 0 (reduce #'+ (luckless-list:to-list (make-delete-parallel))))))
+    (is = 200000 (caslist:length* (make-list-parallel)))
+    (is = 0 (reduce #'+ (caslist:to-list (make-list-parallel))))
+    (is = 0 (reduce #'+ (caslist:to-list (make-delete-parallel))))))
+
+(define-test castable
+  :parent luckless)
+
+(define-test castable-single-threaded
+  :parent castable
+  (of-type castable:castable (castable:make-castable))
+  (finish (castable:clrhash* (castable:make-castable)))
+  (is eql NIL (castable:gethash* NIL (castable:make-castable)))
+  (is eql NIL (castable:gethash* T (castable:make-castable)))
+  (is eql T (castable:gethash* NIL (castable:make-castable) T)))
+
+(define-test castable-multi-threaded
+  :parent castable
+  :depends-on (castable-single-threaded)
+  )
