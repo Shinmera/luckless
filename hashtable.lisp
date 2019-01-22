@@ -29,14 +29,19 @@
 (defconstant tombprime (if (boundp 'tombprime) tombprime (prime tombstone)))
 (defconstant no-value 'no-value)
 
+(declaim (ftype (function (unsigned-byte) fixnum) rehash))
 (defun rehash (h)
-  (incf h (logior (ash h 15) #xffffcd7d))
-  (setf h (logior h (ash h -10)))
-  (incf h (ash h 3))
-  (setf h (logior h (ash h -6)))
-  (incf h (+ (ash h 2) (ash h 14)))
-  (setf h (logior h (ash h -16)))
-  (logand h most-positive-fixnum))
+  (declare (optimize speed))
+  (declare (type (integer 0) h))
+  (let ((h (logand h most-positive-fixnum)))
+    (declare (type (unsigned-byte 64) h))
+    (incf h (logior (logand most-positive-fixnum (ash h 15)) #xffffcd7d))
+    (setf h (logior h (ash h -10)))
+    (incf h (logand most-positive-fixnum (ash h 3)))
+    (setf h (logior h (ash h -6)))
+    (incf h (logand most-positive-fixnum (+ (ash h 2) (ash h 14))))
+    (setf h (logior h (ash h -16)))
+    (logand h most-positive-fixnum)))
 
 (defstruct (cat
             (:constructor %make-cat (next table))
@@ -55,8 +60,10 @@
     (setf (aref table 0) initial-element)
     (%make-cat next table)))
 
+(declaim (ftype (function (cat fixnum) fixnum) cat-sum))
 (defun cat-sum (cat mask)
   (declare (type fixnum mask))
+  (declare (optimize speed))
   (let ((sum (%cat-sum-cache cat)))
     (cond ((/= most-negative-fixnum sum)
            sum)
@@ -68,7 +75,10 @@
              (setf (%cat-sum-cache cat) sum)
              sum)))))
 
+(declaim (ftype (function (cat fixnum) fixnum) cat-sum~))
 (defun cat-sum~ (cat mask)
+  (declare (type fixnum mask))
+  (declare (optimize speed))
   (cond ((<= (length (%cat-table cat)) 64)
          (cat-sum cat mask))
         (T
@@ -82,26 +92,33 @@
                     (:conc-name %counter-))
   (cat (make-cat NIL 4 0) :type cat))
 
-(defun decf-counter (counter)
-  (counter-add-if-mask counter -1 0))
+(declaim (inline decf-counter))
+(defun decf-counter (counter &optional (delta 1))
+  (declare (type fixnum delta))
+  (counter-add-if-mask counter (- delta) 0))
 
+(declaim (inline incf-counter))
 (defun incf-counter (counter &optional (delta 1))
   (declare (type fixnum delta))
   (counter-add-if-mask counter delta 0))
 
 (defun (setf counter-value) (x counter)
+  (declare (optimize speed))
   (declare (type fixnum x))
   (loop with new = (make-cat NIL 4 x)
         until (cas (%counter-cat counter) (%counter-cat counter) new)))
 
+(declaim (inline counter-value))
 (defun counter-value (counter)
   (cat-sum (%counter-cat counter) 0))
 
+(declaim (inline counter-value~))
 (defun counter-value~ (counter)
   (cat-sum~ (%counter-cat counter) 0))
 
 (defun counter-add-if-mask (counter x mask)
   (declare (type fixnum x mask))
+  (declare (optimize speed))
   (let* ((cat (%counter-cat counter))
          (%t (%cat-table cat))
          (idx (logand global-hash (1- (length %t))))
@@ -116,6 +133,7 @@
       (when (/= 0 (logand old mask)) (fail))
       ;; Try some more
       (let ((cnt 0))
+        (declare (type fixnum cnt))
         (loop (setf old (the fixnum (svref %t idx)))
               (when (/= 0 (logand old mask)) (fail))
               (when (cas (svref %t idx) old (+ old x)) (return))
@@ -135,7 +153,7 @@
             (fail))
           ;; Did we try to allocate too often already?
           (when (/= 0 (ash r -17))
-            (sleep (ash r -17))
+            (sleep (floor (ash r -17) 1000))
             (unless (eql cat (%counter-cat counter))
               (fail)))
           ;; Try to extend the CAT once, if it fails another thread
@@ -154,12 +172,15 @@
   (copy-idx 0 :type fixnum)
   (copy-done 0 :type fixnum))
 
+(declaim (inline chm-size))
 (defun chm-size (chm)
   (counter-value (%chm-size chm)))
 
+(declaim (inline chm-slots))
 (defun chm-slots (chm)
   (counter-value (%chm-slots chm)))
 
+(declaim (inline cas-newkvs))
 (defun cas-newkvs (chm newkvs)
   (loop until (%chm-newkvs chm)
         do (when (cas (%chm-newkvs chm) NIL newkvs)
@@ -167,6 +188,7 @@
         finally (return NIL)))
 
 ;; Heuristic to test if the table is too full and we should make a new one.
+(declaim (inline table-full-p))
 (defun table-full-p (chm reprobe-cnt len)
   (and (<= REPROBE-LIMIT reprobe-cnt)
        (<= (reprobe-limit len) (counter-value~ (%chm-slots chm)))))
@@ -193,7 +215,7 @@
 (declaim (inline len))
 (declaim (ftype (function (simple-vector) (unsigned-byte 32)) len))
 (defun len (kvs)
-  (ash (- (length kvs) 2) -1))
+  (the (unsigned-byte 32) (ash (- (length kvs) 2) -1)))
 
 (declaim (inline key))
 (declaim (ftype (function (simple-vector (unsigned-byte 32)) T) key))
@@ -205,9 +227,11 @@
 (defun val (kvs idx)
   (svref kvs (+ 3 (ash idx 1))))
 
+(declaim (inline cas-key))
 (defun cas-key (kvs idx old key)
   (cas (svref kvs (+ 2 (ash idx 1))) old key))
 
+(declaim (inline cas-val))
 (defun cas-val (kvs idx old val)
   (cas (svref kvs (+ 3 (ash idx 1))) old val))
 
@@ -215,6 +239,7 @@
   (prog1 (counter-value (%castable-reprobes table))
     (setf (%castable-reprobes table) (make-counter))))
 
+(declaim (inline reprobe-limit))
 (defun reprobe-limit (len)
   (+ REPROBE-LIMIT (ash len -2)))
 
@@ -256,6 +281,7 @@
         (setf (svref kvs 1) (make-array (ash 1 i) :element-type 'fixnum :initial-element 0))
         (%make-castable kvs (get-internal-real-time) test hasher)))))
 
+(declaim (inline hash))
 (defun hash (table thing)
   (rehash (funcall (%castable-hasher table) thing)))
 
@@ -296,6 +322,10 @@
     (loop until (cas (%castable-kvs table) (%castable-kvs table) new))))
 
 (defun keyeq (k key hashes hash fullhash test)
+  (declare (type fixnum hash fullhash))
+  (declare (type (function (T T) boolean) test))
+  (declare (type (simple-array fixnum) hashes))
+  (declare (optimize speed))
   (or (eq k key)
       ;; Key does not match exactly, so try more expensive comparison.
       (and ;; If the hash exists, does it match?
@@ -307,6 +337,7 @@
            (funcall test key k))))
 
 (defun gethash* (key table &optional default)
+  (declare (optimize speed))
   (let* ((fullhash (hash table key))
          (value (%gethash table (%castable-kvs table) key fullhash)))
     ;; Make sure we never return primes
@@ -316,6 +347,10 @@
         value)))
 
 (defun %gethash (table kvs key fullhash)
+  (declare (type castable table))
+  (declare (type simple-array kvs))
+  (declare (type fixnum fullhash))
+  (declare (optimize speed))
   (let* ((len (len kvs))
          (chm (chm kvs))
          (hashes (hashes kvs))
@@ -350,6 +385,9 @@
               (setf idx (logand (1+ idx) (1- len))))))))
 
 (defun %put-if-match (table kvs key put exp)
+  (declare (type castable table))
+  (declare (type simple-array kvs))
+  (declare (optimize speed))
   (let* ((fullhash (hash table key))
          (len (len kvs))
          (chm (chm kvs))
@@ -441,6 +479,10 @@
     helper))
 
 (defun resize (chm table kvs)
+  (declare (type chm chm))
+  (declare (type castable table))
+  (declare (type simple-array kvs))
+  (declare (optimize speed))
   (assert (eq chm (chm kvs)))
   ;; Check for resize in progress
   (let ((newkvs (%chm-newkvs chm)))
@@ -448,6 +490,7 @@
     (let* ((oldlen (len kvs))
            (sz (chm-size chm))
            (newsz sz))
+      (declare (type fixnum oldlen sz newsz))
       ;; Heuristic for new size
       (when (<= (ash oldlen -2) sz)
         (setf newsz (ash oldlen 1))
@@ -487,7 +530,7 @@
             (when newkvs
               (return-from resize newkvs))
             ;; We already have two threads trying a resize, wait
-            (sleep (/ (* 8 megs) 1000))))
+            (sleep (floor (* 8 megs) 1000))))
         ;; Last check
         (setf newkvs (%chm-newkvs chm))
         (when newkvs
@@ -505,12 +548,17 @@
             (%chm-newkvs chm))))))
 
 (defun %help-copy (chm table oldkvs copy-all)
+  (declare (type chm chm))
+  (declare (type castable table))
+  (declare (type simple-array oldkvs))
+  (declare (optimize speed))
   (assert (eq chm (chm oldkvs)))
   (let* ((newkvs (%chm-newkvs chm))
          (oldlen (len oldkvs))
          (min-copy-work (min oldlen 1024))
          (panic-start -1)
          (copy-idx -9999))
+    (declare (type fixnum oldlen min-copy-work copy-idx))
     (assert (not (null newkvs)))
     ;; Loop while there's work to be done
     (loop while (< (%chm-copy-done chm) oldlen)
@@ -524,6 +572,7 @@
               (setf panic-start copy-idx)))
           ;; Okey, now perform the copy.
           (let ((workdone 0))
+            (declare (type fixnum workdone))
             (dotimes (i min-copy-work)
               (when (copy-slot table (logand (+ copy-idx i) (1- oldlen)) oldkvs newkvs)
                 (incf workdone)))
@@ -539,6 +588,10 @@
 
 ;; Copy the slot and check that we have done so successfully.
 (defun copy-slot-and-check (chm table oldkvs idx should-help)
+  (declare (type chm chm))
+  (declare (type castable table))
+  (declare (type simple-array oldkvs))
+  (declare (optimize speed))
   (assert (eq chm (chm oldkvs)))
   (let ((newkvs (%chm-newkvs chm)))
     (assert (not (null newkvs)))
@@ -549,6 +602,11 @@
         newkvs)))
 
 (defun copy-check-and-promote (chm table oldkvs work-done)
+  (declare (type chm chm))
+  (declare (type castable table))
+  (declare (type simple-array oldkvs))
+  (declare (type fixnum work-done))
+  (declare (optimize speed))
   (assert (eq chm (chm oldkvs)))
   (let ((oldlen (len oldkvs))
         (copy-done (%chm-copy-done chm)))
@@ -566,6 +624,10 @@
 ;; Copy one slot into the new table,
 ;; returns true if we are sure that the new table has a value.
 (defun copy-slot (table idx oldkvs newkvs)
+  (declare (type castable table))
+  (declare (type fixnum idx))
+  (declare (type simple-array oldkvs newkvs))
+  (declare (optimize speed))
   ;; First tombstone the key blindly.
   (let (key)
     (loop while (eq (setf key (key oldkvs idx)) NO-VALUE)
