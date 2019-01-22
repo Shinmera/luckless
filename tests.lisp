@@ -172,7 +172,7 @@
   :parent castable
   :depends-on (castable-single-threaded)
   (let ((tries 10000)
-        (threads 2))
+        (threads 4))
     ;; Concurrent set on same field
     (let ((table (castable:make-castable)))
       (finish
@@ -182,24 +182,34 @@
       (is eql T (castable:gethash* T table))
       (is = 1 (castable:size table)))
     ;; Concurrent set on separate fields
-    (let ((table (castable:make-castable)))
+    (let ((table (castable:make-castable))
+          (per-thread (floor (/ tries threads))))
       (finish
        (finish-threads
         (with-threads (idx threads)
-          (loop for i from (* idx tries)
-                repeat tries
+          (loop for i from (* idx per-thread) below (* (1+ idx) per-thread)
                 do (setf (castable:gethash* i table) i)))))
-      (is = (* threads tries) (castable:size table))
-      (is eql T (loop for i from 0 below (* threads tries)
+      (is = tries (castable:size table))
+      (is eql T (loop for i from 0 below tries
                       always (eql i (castable:gethash* i table)))))
     ;; Concurrent set on same fields
     (let ((table (castable:make-castable)))
       (finish
        (finish-threads
         (with-threads (idx threads)
-          (loop for i from (floor (* idx tries 0.75))
-                repeat tries
+          (loop for i from 0 below tries
                 do (setf (castable:gethash* i table) i)))))
-      (is = (+ tries (* (1- threads) tries 0.75)) (castable:size table))
-      (is eql T (loop for i from 0 below (+ tries (* (1- threads) tries 0.75))
-                      always (eql i (castable:gethash* i table)))))))
+      (is = tries (castable:size table))
+      (is eql T (loop for i from 0 below tries
+                      always (eql i (castable:gethash* i table)))))
+    ;; Concurrent set on randomised fields
+    (let ((table (castable:make-castable)))
+      (flet ((random-index (idx i)
+               (floor (* tries (/ (sxhash (+ (* idx tries) i)) most-positive-fixnum)))))
+        (finish
+         (finish-threads
+          (with-threads (idx threads)
+            (loop for i from 0 below tries
+                  for j = (random-index idx i)
+                  do (setf (castable:gethash* j table) idx)))))
+        (is <= tries (castable:size table))))))
