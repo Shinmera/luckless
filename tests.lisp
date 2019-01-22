@@ -93,7 +93,19 @@
   (finish (castable:clrhash* (castable:make-castable)))
   (is eql NIL (castable:gethash* NIL (castable:make-castable)))
   (is eql NIL (castable:gethash* T (castable:make-castable)))
-  (is eql T (castable:gethash* NIL (castable:make-castable) T)))
+  (is eql T (castable:gethash* NIL (castable:make-castable) T))
+  (is eql T (setf (castable:gethash* T (castable:make-castable)) T))
+  (is eql NIL (castable:remhash* T (castable:make-castable)))
+  (let ((table (castable:make-castable)))
+    (is eql T (setf (castable:gethash* T table) T))
+    (is eql T (castable:gethash* T table))
+    (is eql T (castable:remhash* T Table))
+    (is eql NIL (castable:gethash* T table))
+    (is eql NIL (castable:remhash* T Table)))
+  (let ((table (castable:make-castable)))
+    (finish (dotimes (i 100) (setf (castable:gethash* i table) i)))
+    (is eql T (loop for i from 0 below 100 always (= i (castable:gethash* i table))))
+    (is = 100 (castable:size table))))
 
 (define-test castable-multi-threaded
   :parent castable

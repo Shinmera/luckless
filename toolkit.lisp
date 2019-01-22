@@ -22,7 +22,7 @@
   `(system:compare-and-swap ,place ,old ,new)
   #+sbcl
   (let ((tmp (gensym "OLD")))
-    `(let ((,tmp ,old)) (eql ,tmp (sb-ext:cas ,place ,tmp ,new))))
+    `(let ((,tmp ,old)) (eq ,tmp (sb-ext:cas ,place ,tmp ,new))))
   #-(or allegro ecl ccl lispworks sbcl)
   (error "Implementation not supported."))
 

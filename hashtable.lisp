@@ -50,12 +50,15 @@
 (defun make-cat (next size initial-element)
   (declare (type fixnum initial-element))
   (declare (type fixnum size))
-  (%make-cat next (make-array size :initial-element initial-element)))
+  (let ((table (make-array size :initial-element 0)))
+    (setf (aref table 0) initial-element)
+    (%make-cat next table)))
 
 (defun cat-sum (cat mask)
   (declare (type fixnum mask))
   (let ((sum (%cat-sum-cache cat)))
-    (cond ((/= most-negative-fixnum sum) sum)
+    (cond ((/= most-negative-fixnum sum)
+           sum)
           (T
            (setf sum (if (%cat-next cat) (cat-sum (%cat-next cat) mask) 0))
            (let ((%t (%cat-table cat)))
@@ -101,18 +104,18 @@
   (let* ((cat (%counter-cat counter))
          (%t (%cat-table cat))
          (idx (logand global-hash (1- (length %t))))
-         (old (svref %t idx))
+         (old (the fixnum (svref %t idx)))
          ;; Try once quickly
          (ok (cas (svref %t idx) (logand old (lognot mask)) (+ old x))))
     (flet ((fail () (return-from counter-add-if-mask old)))
       ;; Clear the cache
       (when (/= (%cat-sum-cache cat) most-negative-fixnum)
         (setf (%cat-sum-cache cat) most-negative-fixnum))
-      (when ok (done))
+      (when ok (fail))
       (when (/= 0 (logand old mask)) (fail))
       ;; Try some more
       (let ((cnt 0))
-        (loop (setf old (svref %t idx))
+        (loop (setf old (the fixnum (svref %t idx)))
               (when (/= 0 (logand old mask)) (fail))
               (when (cas (svref %t idx) old (+ old x)) (return))
               (incf cnt))
@@ -138,7 +141,7 @@
           ;; already did it for us so we don't have to retry.
           (let ((new (make-cat cat (* (length %t) 2) 0)))
             (cas (%counter-cat counter) cat new)
-            old))))))
+            (fail)))))))
 
 (defstruct (chm
             (:constructor make-chm (size))
@@ -266,10 +269,13 @@
 ;; Missing: iteration
 
 (defun (setf gethash*) (value key table)
-  (put-if-match table key value NO-MATCH-OLD))
+  (put-if-match table key value NO-MATCH-OLD)
+  value)
 
-(defun remhash* (table key)
-  (put-if-match table key TOMBSTONE NO-MATCH-OLD))
+(defun remhash* (key table)
+  (if (eq TOMBSTONE (%put-if-match table (%castable-kvs table) key TOMBSTONE NO-MATCH-OLD))
+      NIL
+      T))
 
 (defun try-remhash (table key val &optional (test #'eql))
   (let ((out (put-if-match table key TOMBSTONE val)))
@@ -290,8 +296,8 @@
   (or (eq k key)
       ;; Key does not match exactly, so try more expensive comparison.
       (and ;; If the hash exists, does it match?
-           (or (= (svref hashes hash) 0)
-               (= (svref hashes hash) fullhash))
+           (or (= (aref hashes hash) 0)
+               (= (aref hashes hash) fullhash))
            ;; Avoid testing tombstones
            (not (eq k TOMBSTONE))
            ;; Call test function for real comparison
@@ -359,8 +365,8 @@
             (when (eq put TOMBSTONE)
               (return-from %put-if-match put))
             ;; Claim the spot
-            (when (cas (svref kvs idx) NO-VALUE key)
-              (incf-counter (chm-slots chm))
+            (when (cas-key kvs idx NO-VALUE key)
+              (incf-counter (%chm-slots chm))
               (setf (aref hashes idx) fullhash)
               (return))
             ;; We failed, update the key
@@ -406,14 +412,15 @@
                      (or (eq exp NO-VALUE) (not (funcall test exp v))))
             (return v))
           ;; Perform the change
-          (when (cas (svref kvs idx) v put)
+          (when (cas-val kvs idx v put)
             ;; Okey, we got it, update the size
-            (when (and (or (eq v NO-VALUE) (eq v TOMBSTONE))
-                       (not (eq put TOMBSTONE)))
-              (incf-counter (chm-size chm)))
-            (when (and (not (or (eq v NO-VALUE) (eq v TOMBSTONE)))
-                       (eq put TOMBSTONE))
-              (decf-counter (chm-size chm)))
+            (unless (eq exp NO-VALUE)
+              (when (and (or (eq v NO-VALUE) (eq v TOMBSTONE))
+                         (not (eq put TOMBSTONE)))
+                (incf-counter (%chm-size chm)))
+              (when (and (not (or (eq v NO-VALUE) (eq v TOMBSTONE)))
+                         (eq put TOMBSTONE))
+                (decf-counter (%chm-size chm))))
             (return (if (and (eq v NO-VALUE) (not (eq exp NO-VALUE)))
                         TOMBSTONE
                         v)))
