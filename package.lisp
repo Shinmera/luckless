@@ -5,15 +5,17 @@
 |#
 
 (defpackage #:luckless-tools
-  (:nicknames #:org.shirakumo.luckless.list)
-  (:use #:cl))
+  (:nicknames #:org.shirakumo.luckless.tools)
+  (:use #:cl)
+  (:export
+   #:cas
+   #:atomic-incf))
 
 ;; FIXME: replace stars with shadowing
 
 (defpackage #:luckless-list
   (:nicknames #:org.shirakumo.luckless.list)
-  (:use #:cl)
-  (:import-from #:luckless-tools #:cas)
+  (:use #:cl #:org.shirakumo.luckless.tools)
   (:export
    #:caslist
    #:to-list
@@ -27,6 +29,5 @@
 
 (defpackage #:luckless-hashtable
   (:nicknames #:org.shirakumo.luckless.hashtable)
-  (:use #:cl)
-  (:import-from #:luckless-tools #:cas)
+  (:use #:cl #:org.shirakumo.luckless.tools)
   (:export))

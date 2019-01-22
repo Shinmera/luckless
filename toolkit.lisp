@@ -25,3 +25,18 @@
     `(let ((,tmp ,old)) (eql ,tmp (sb-ext:cas ,place ,tmp ,new))))
   #-(or allegro ecl ccl lispworks sbcl)
   (error "Implementation not supported."))
+
+(defmacro atomic-incf (place &optional (delta 1))
+  #+allegro
+  `(excl:incf-atomic ,place ,delta)
+  ;; None that CCL currently does not support this on struct members.
+  #+ccl
+  `(ccl::atomic-incf-decf ,place ,delta)
+  #+ecl
+  `(+ (mp:atomic-incf ,place ,delta) ,delta)
+  #+lispworks
+  `(system:atomic-fixnum-incf ,place ,delta)
+  #+sbcl
+  `(+ (sb-ext:atomic-incf ,place ,delta) ,delta)
+  #-(or allegro ecl ccl lispworks sbcl)
+  (error "Implementation not supported."))
