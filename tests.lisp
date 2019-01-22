@@ -211,5 +211,16 @@
           (with-threads (idx threads)
             (loop for i from 0 below tries
                   for j = (random-index idx i)
-                  do (setf (castable:gethash* j table) idx)))))
-        (is <= tries (castable:size table))))))
+                  do (setf (castable:gethash* j table) j)))))
+        (is <= tries (castable:size table))))
+    ;; Concurrent set & remove
+    (let ((table (castable:make-castable)))
+      (finish
+       (finish-threads
+        (with-threads (idx (/ threads 2))
+          (loop for i from idx below tries by threads
+                do (setf (castable:gethash* i table) i)))
+        (with-threads (idx (/ threads 2))
+          (loop for i from idx below tries by threads
+                do (loop until (castable:remhash* i table))))))
+      (is = 0 (castable:size table)))))
