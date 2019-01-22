@@ -22,13 +22,19 @@
 
 (defun spawn-threads (n function)
   (loop for i from 0 below n
-        collect (bt:make-thread function :name (format NIL "~dth test thread" i))))
+        collect (bt:make-thread (lambda () (funcall function i))
+                                :name (format NIL "~dth test thread" i))))
+
+(defmacro with-threads ((idx n) &body body)
+  `(spawn-threads ,n (lambda (,idx) (declare (ignorable ,idx)) ,@body)))
 
 (defun finish-threads (&rest threads)
-  (loop for thread in threads
-        do (if (listp thread)
-               (mapc #'bt:join-thread thread)
-               (bt:join-thread thread))))
+  (let ((threads (alexandria:flatten threads)))
+    (unwind-protect
+         (mapc #'bt:join-thread threads)
+      (dolist (thread threads)
+        (when (bt:thread-alive-p thread)
+          (bt:destroy-thread thread))))))
 
 (define-test luckless)
 
@@ -70,14 +76,14 @@
   (flet ((make-list-parallel ()
            (let ((list (caslist:caslist)))
              (finish-threads
-              (spawn-threads 2 (lambda () (loop repeat 100000 do (caslist:push* 0 list)))))
+              (with-threads (_ 2) (loop repeat 100000 do (caslist:push* 0 list))))
              list))
          (make-delete-parallel ()
            (let ((list (caslist:caslist)))
              (finish-threads
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:push* 0 list))))
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:push* 1 list))))
-              (spawn-threads 1 (lambda () (loop repeat 100000 do (caslist:delete* 1 list)))))
+              (with-threads (_ 1) (loop repeat 100000 do (caslist:push* 0 list)))
+              (with-threads (_ 1) (loop repeat 100000 do (caslist:push* 1 list)))
+              (with-threads (_ 1) (loop repeat 100000 do (caslist:delete* 1 list))))
              list)))
     (finish (make-list-parallel))
     (is = 200000 (caslist:length* (make-list-parallel)))
@@ -165,6 +171,35 @@
 (define-test castable-multi-threaded
   :parent castable
   :depends-on (castable-single-threaded)
-  (flet ((make-table-parallel ()
-           (let ((table (castable:make-castable)))
-             (finish-threads ))))))
+  (let ((tries 10000)
+        (threads 2))
+    ;; Concurrent set on same field
+    (let ((table (castable:make-castable)))
+      (finish
+       (finish-threads
+        (with-threads (_ threads)
+          (loop repeat tries do (setf (castable:gethash* T table) T)))))
+      (is eql T (castable:gethash* T table))
+      (is = 1 (castable:size table)))
+    ;; Concurrent set on separate fields
+    (let ((table (castable:make-castable)))
+      (finish
+       (finish-threads
+        (with-threads (idx threads)
+          (loop for i from (* idx tries)
+                repeat tries
+                do (setf (castable:gethash* i table) i)))))
+      (is = (* threads tries) (castable:size table))
+      (is eql T (loop for i from 0 below (* threads tries)
+                      always (eql i (castable:gethash* i table)))))
+    ;; Concurrent set on same fields
+    (let ((table (castable:make-castable)))
+      (finish
+       (finish-threads
+        (with-threads (idx threads)
+          (loop for i from (floor (* idx tries 0.75))
+                repeat tries
+                do (setf (castable:gethash* i table) i)))))
+      (is = (+ tries (* (1- threads) tries 0.75)) (castable:size table))
+      (is eql T (loop for i from 0 below (+ tries (* (1- threads) tries 0.75))
+                      always (eql i (castable:gethash* i table)))))))

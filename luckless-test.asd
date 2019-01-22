@@ -17,5 +17,6 @@
   :components ((:file "tests"))
   :depends-on (:luckless
                :parachute
-               :bordeaux-threads)
+               :bordeaux-threads
+               :alexandria)
   :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test :luckless-test)))
