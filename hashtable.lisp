@@ -35,7 +35,8 @@
   (incf h (ash h 3))
   (setf h (logior h (ash h -6)))
   (incf h (+ (ash h 2) (ash h 14)))
-  (logior h (ash h -16)))
+  (setf h (logior h (ash h -16)))
+  (logand h most-positive-fixnum))
 
 (defstruct (cat
             (:constructor %make-cat (next table))
@@ -241,10 +242,12 @@
                  (null #'eql)
                  (function test)
                  (symbol (fdefinition test))))
-         (hasher (etypecase hash-function
-                   (null (determine-hasher test))
-                   (function hash-function)
-                   (symbol (fdefinition hash-function)))))
+         (hash-function (etypecase hash-function
+                          (null (determine-hasher test))
+                          (function hash-function)
+                          (symbol (fdefinition hash-function))))
+         (hasher (lambda (x)
+                   (rehash (funcall hash-function x)))))
     (let ((i MIN-SIZE-LOG))
       (loop while (< (ash 1 i) (ash size 2))
             do (incf i))
