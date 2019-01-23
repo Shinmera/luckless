@@ -149,6 +149,7 @@
         ;; We are contending too much, increase the size in hopes it'll help
         (let ((r (%cat-resizers cat))
               (newbytes (ash (ash (length %t) 1) 4)))
+          (declare (type fixnum r newbytes))
           (loop while (not (cas (%cat-resizers cat) r (+ r newbytes)))
                 do (setf r (%cat-resizers cat)))
           (incf r newbytes)
@@ -157,7 +158,7 @@
             (fail))
           ;; Did we try to allocate too often already?
           (when (/= 0 (ash r -17))
-            (sleep (floor (ash r -17) 1000))
+            (sleep (/ (ash r -17) 1000))
             (unless (eql cat (%counter-cat counter))
               (fail)))
           ;; Try to extend the CAT once, if it fails another thread
@@ -403,6 +404,7 @@
          (reprobe-cnt 0)
          (k NO-VALUE) (v NO-VALUE)
          (newkvs NIL))
+    (declare (type fixnum idx reprobe-cnt))
     ;; Spin for a hit
     (loop (setf v (val kvs idx))
           (setf k (key kvs idx))
@@ -478,6 +480,8 @@
             (return (%put-if-match table (copy-slot-and-check chm table kvs idx exp) key put exp))))))
 
 (defun help-copy (table helper)
+  (declare (type castable table))
+  (declare (optimize speed))
   (let* ((topkvs (%castable-kvs table))
          (topchm (chm topkvs)))
     (when (%chm-newkvs topchm)
@@ -518,33 +522,35 @@
           (setf newsz (ash oldlen 1))))
       ;; Don't shrink
       (when (< newsz oldlen) (setf newsz oldlen))
-      (let ((log2 MIN-SIZE-LOG)
+      (let ((size MIN-SIZE)
             (r (%chm-resizers chm)))
+        (declare (type fixnum size))
         ;; Convert to power of two
-        (loop while (< (ash 1 log2) newsz)
-              do (incf log2))
+        (loop while (< size newsz)
+              do (setf size (ash size 1)))
         ;; Limit the number of threads resizing things
         (loop until (cas (%chm-resizers chm) r (1+ r))
               do (setf r (%chm-resizers chm)))
         ;; Size calculation: 2 words per table + extra
         ;; NOTE: The original assumes 32 bit pointers, we conditionalise
-        (let ((megs (ash (ash (+ (* (ash 1 log2) 2) 4)
+        (let ((megs (ash (ash (+ (* size 2) 4)
                               #+64-BIT 4 #-64-BIT 3)
                          -20)))
+          (declare (type fixnum megs))
           (when (and (<= 2 r) (< 0 megs))
             (setf newkvs (%chm-newkvs chm))
             (when newkvs
               (return-from resize newkvs))
             ;; We already have two threads trying a resize, wait
-            (sleep (floor (* 8 megs) 1000))))
+            (sleep (/ (* 8 megs) 1000))))
         ;; Last check
         (setf newkvs (%chm-newkvs chm))
         (when newkvs
           (return-from resize newkvs))
         ;; Allocate the array
-        (setf newkvs (make-array (+ 2 (* 2 (ash 1 log2))) :initial-element NO-VALUE))
+        (setf newkvs (make-array (+ 2 (* 2 size)) :initial-element NO-VALUE))
         (setf (svref newkvs 0) (make-chm (%chm-size chm)))
-        (setf (svref newkvs 1) (make-array (ash 1 log2) :element-type 'fixnum :initial-element 0))
+        (setf (svref newkvs 1) (make-array size :element-type 'fixnum :initial-element 0))
         ;; Check again after the allocation
         (when (%chm-newkvs chm)
           (return-from resize (%chm-newkvs chm)))
