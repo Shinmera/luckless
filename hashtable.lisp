@@ -43,6 +43,10 @@
     (setf h (logior h (ash h -16)))
     (logand h most-positive-fixnum)))
 
+(declaim (inline reprobe-limit))
+(defun reprobe-limit (len)
+  (+ REPROBE-LIMIT (ash len -2)))
+
 (defstruct (cat
             (:constructor %make-cat (next table))
             (:conc-name %cat-))
@@ -239,10 +243,6 @@
   (prog1 (counter-value (%castable-reprobes table))
     (setf (%castable-reprobes table) (make-counter))))
 
-(declaim (inline reprobe-limit))
-(defun reprobe-limit (len)
-  (+ REPROBE-LIMIT (ash len -2)))
-
 (defun determine-hasher (test)
   (or (cond ((eq test #'eq)
              #+sbcl #'sb-impl::eq-hash
@@ -286,10 +286,16 @@
   (rehash (funcall (%castable-hasher table) thing)))
 
 (defun size (table)
+  (/ (- (length (%castable-kvs table)) 4) 2))
+
+(defun count (table)
   (chm-size (chm (%castable-kvs table))))
 
-(defun empty-p (table)
-  (= 0 (size table)))
+(defun test (table)
+  (%castable-test table))
+
+(defun hash-function (table)
+  (%castable-hasher table))
 
 ;; Missing: putIfAbsent
 ;; Missing: containsValue
@@ -297,11 +303,11 @@
 ;; Missing: clone
 ;; Missing: iteration
 
-(defun (setf gethash*) (value key table)
+(defun (setf gethash) (value key table)
   (put-if-match table key value NO-MATCH-OLD)
   value)
 
-(defun remhash* (key table)
+(defun remhash (key table)
   (if (eq TOMBSTONE (%put-if-match table (%castable-kvs table) key TOMBSTONE NO-MATCH-OLD))
       NIL
       T))
@@ -317,7 +323,7 @@
     (unless (eq res TOMBSTONE)
       res)))
 
-(defun clrhash* (table)
+(defun clrhash (table)
   (let ((new (%castable-kvs (make-castable))))
     (loop until (cas (%castable-kvs table) (%castable-kvs table) new))))
 
@@ -336,7 +342,7 @@
            ;; Call test function for real comparison
            (funcall test key k))))
 
-(defun gethash* (key table &optional default)
+(defun gethash (key table &optional default)
   (declare (optimize speed))
   (let* ((fullhash (hash table key))
          (value (%gethash table (%castable-kvs table) key fullhash)))

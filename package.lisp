@@ -4,31 +4,36 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-;; FIXME: replace stars with shadowing
-
 (defpackage #:luckless-list
   (:nicknames #:org.shirakumo.luckless.list)
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)
+  (:shadow #:mapc #:first #:nth #:length #:push #:delete #:member)
   (:export
    #:caslist
+   #:caslist-p
    #:to-list
-   #:mapc*
-   #:first*
-   #:nth*
-   #:length*
-   #:push*
-   #:delete*
-   #:member*))
+   #:mapc
+   #:first
+   #:nth
+   #:length
+   #:push
+   #:delete
+   #:member))
 
 (defpackage #:luckless-hashtable
   (:nicknames #:org.shirakumo.luckless.hashtable)
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)
+  (:shadow #:gethash #:remhash #:clrhash #:count)
   (:export
    #:make-castable
    #:castable
+   #:castable-p
    #:size
-   #:gethash*
-   #:remhash*
-   #:clrhash*))
+   #:count
+   #:test
+   #:hash-function
+   #:gethash
+   #:remhash
+   #:clrhash))
