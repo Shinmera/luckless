@@ -15,8 +15,8 @@
   :source-control (:git "https://github.com/Shinmera/luckless.git")
   :serial T
   :components ((:file "package")
-               (:file "toolkit")
                (:file "list")
                (:file "hashtable"))
-  :depends-on (:documentation-utils)
+  :depends-on (:atomics
+               :documentation-utils)
   :in-order-to ((asdf:test-op (asdf:test-op :luckless-test))))

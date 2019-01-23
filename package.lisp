@@ -4,18 +4,12 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(defpackage #:luckless-tools
-  (:nicknames #:org.shirakumo.luckless.tools)
-  (:use #:cl)
-  (:export
-   #:cas
-   #:atomic-incf))
-
 ;; FIXME: replace stars with shadowing
 
 (defpackage #:luckless-list
   (:nicknames #:org.shirakumo.luckless.list)
-  (:use #:cl #:org.shirakumo.luckless.tools)
+  (:use #:cl)
+  (:import-from #:org.shirakumo.atomics #:cas)
   (:export
    #:caslist
    #:to-list
@@ -29,7 +23,8 @@
 
 (defpackage #:luckless-hashtable
   (:nicknames #:org.shirakumo.luckless.hashtable)
-  (:use #:cl #:org.shirakumo.luckless.tools)
+  (:use #:cl)
+  (:import-from #:org.shirakumo.atomics #:cas)
   (:export
    #:make-castable
    #:castable
