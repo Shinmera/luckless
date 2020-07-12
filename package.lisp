@@ -25,7 +25,7 @@
   (:nicknames #:org.shirakumo.luckless.hashtable)
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)
-  (:shadow #:gethash #:remhash #:clrhash #:count)
+  (:shadow #:gethash #:remhash #:clrhash #:maphash #:count)
   (:export
    #:make-castable
    #:castable
@@ -36,4 +36,5 @@
    #:hash-function
    #:gethash
    #:remhash
-   #:clrhash))
+   #:clrhash
+   #:maphash))

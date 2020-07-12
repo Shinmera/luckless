@@ -670,3 +670,19 @@
           ;; Now that the copy is done, we can stub out the old key completely.
           (loop until (cas-val oldkvs idx oldval TOMBPRIME)
                 do (setf oldval (val oldkvs idx))))))))
+
+(defun maphash (function table)
+  (let (snapshot-kvs)
+    (loop for top-kvs = (%castable-kvs table)
+          for top-chm = (chm top-kvs)
+          for newkvs  = (%chm-newkvs top-chm)
+          until (null newkvs)
+          do (help-copy table newkvs)
+          finally (setf snapshot-kvs top-kvs))
+    (loop for position from 2 below (length snapshot-kvs) by 2
+          for key   = (aref snapshot-kvs position)
+          for value = (aref snapshot-kvs (1+ position))
+          unless (or (eq key   NO-VALUE)
+                     (eq key   TOMBSTONE)
+                     (eq value NO-VALUE))
+            do (funcall function key value))))
