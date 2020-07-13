@@ -618,3 +618,9 @@
                      (eq key   TOMBSTONE)
                      (eq value NO-VALUE))
             do (funcall function key value))))
+
+(defmethod print-object ((table castable) stream)
+  (print-unreadable-object (table stream :type t :identity t)
+    (format stream ":test ~s :count ~s"
+            (test table)
+            (count table))))
