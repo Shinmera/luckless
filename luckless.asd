@@ -16,6 +16,7 @@
   :serial T
   :components ((:file "package")
                (:file "list")
+               (:file "cat")
                (:file "hashtable"))
   :depends-on (:atomics
                :documentation-utils)

@@ -170,9 +170,9 @@
 
 (define-test castable-multi-threaded
   :parent castable
-  :depends-on (castable-single-threaded)
-  (let ((tries 10000)
-        (threads 4))
+  :depends-on #+(or) (castable-single-threaded) ()
+  (let ((tries 50000)
+        (threads 6))
     ;; Concurrent set on same field
     (let ((table (castable:make-castable)))
       (finish
