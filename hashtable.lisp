@@ -17,9 +17,6 @@
     (value NIL :type T)))
 
 (defconstant max-spin 2)
-(defconstant global-hash (if (boundp 'global-hash)
-                             global-hash
-                             #.(sxhash (get-universal-time))))
 (defconstant reprobe-limit 10)
 (defconstant min-size-log 3)
 (defconstant min-size (ash 1 min-size-log))

@@ -11,6 +11,10 @@
 
 (in-package #:org.shirakumo.luckless.hashtable)
 
+(defconstant global-hash (if (boundp 'global-hash)
+                             global-hash
+                             #.(sxhash (get-universal-time))))
+
 (defstruct (cat
             (:constructor %make-cat (next table))
             (:conc-name %cat-))
