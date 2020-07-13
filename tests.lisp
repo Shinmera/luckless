@@ -172,10 +172,10 @@
 
 (define-test castable-multi-threaded
   :parent castable
-  :depends-on #+(or) (castable-single-threaded) ()
-  (let ((tries 60000)
-        (threads 6))
-    (write-line "Concurrent set on same field")
+  :depends-on (castable-single-threaded)
+  (let ((tries 40000)
+        (threads 4))
+    ;; Concurrent set on same field
     (let ((table (castable:make-castable)))
       (finish
        (finish-threads
@@ -183,7 +183,7 @@
           (loop repeat tries do (setf (castable:gethash T table) T)))))
       (is eql T (castable:gethash T table))
       (is = 1 (castable:count table)))
-    (write-line "Concurrent set on separate fields")
+    ;; Concurrent set on separate fields
     (let ((table (castable:make-castable))
           (per-thread (floor (/ tries threads))))
       (finish
@@ -191,11 +191,10 @@
         (with-threads (idx threads)
           (loop for i from (* idx per-thread) below (* (1+ idx) per-thread)
                 do (setf (castable:gethash i table) i)))))
-      ;; This test fails occasionally.
       (is = tries (castable:count table))
       (is eql T (loop for i from 0 below tries
                       always (eql i (castable:gethash i table)))))
-    (write-line "Concurrent set on same fields")
+    ;; Concurrent set on same fields
     (let ((table (castable:make-castable)))
       (finish
        (finish-threads
@@ -205,7 +204,7 @@
       (is = tries (castable:count table))
       (is eql T (loop for i from 0 below tries
                       always (eql i (castable:gethash i table)))))
-    (write-line "Concurrent set on randomised fields")
+    ;; Concurrent set on randomised fields
     (let ((table (castable:make-castable)))
       (flet ((random-index (idx i)
                (floor (* tries (/ (sxhash (+ (* idx tries) i)) most-positive-fixnum)))))
@@ -216,7 +215,7 @@
                   for j = (random-index idx i)
                   do (setf (castable:gethash j table) j)))))
         (is <= tries (castable:count table))))
-    (write-line "Concurrent set & remove")
+    ;; Concurrent set & remove
     (let ((table (castable:make-castable)))
       (finish
        (finish-threads
