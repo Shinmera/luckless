@@ -25,7 +25,7 @@
         collect (let ((i i))
                   (bt:make-thread
                    (lambda () (funcall function i))
-                   :name (format NIL "~dth test thread" i)))))
+                   :name (format NIL "~:r test thread" i)))))
 
 (defmacro with-threads ((idx n) &body body)
   `(spawn-threads ,n (lambda (,idx) (declare (ignorable ,idx)) ,@body)))
