@@ -30,6 +30,9 @@
          (inline rehash))
 
 ;; L71, int hash(Object)
+;; REHASH seems to make hashes less unique, from some experimentation.
+(defun rehash (h) h)
+#+(or)
 (defun rehash (h)
   "Spread bits of the hash H around."
   (declare (optimize speed))
