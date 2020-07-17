@@ -162,8 +162,9 @@
              #+sbcl (third (find test sb-impl::*user-hash-table-tests* :key #'second))))
       (error "Don't know a hasher for ~a." test)))
 
+(defvar *maximum-size* (* 8 1024 1024))
 (defun make-castable (&key test size hash-function)
-  (let* ((size (min (* 1024 1024) (max MIN-SIZE (or size 0))))
+  (let* ((size (min *maximum-size* (max MIN-SIZE (or size 0))))
          (test (etypecase test
                  (null #'eql)
                  (function test)
@@ -172,12 +173,10 @@
                           (null (determine-hasher test))
                           (function hash-function)
                           (symbol (fdefinition hash-function)))))
-    (let ((i MIN-SIZE-LOG))
-      (loop while (< (ash 1 i) (ash size 2))
-            do (incf i))
-      (let ((kvs (make-array (+ 2 (ash (ash 1 i) 1)) :initial-element NO-VALUE)))
+    (let ((power-of-two (expt 2 (integer-length size))))
+      (let ((kvs (make-array (+ 2 (ash power-of-two 1)) :initial-element NO-VALUE)))
         (setf (svref kvs 0) (make-chm (make-counter)))
-        (setf (svref kvs 1) (make-array (ash 1 i) :element-type 'fixnum :initial-element 0))
+        (setf (svref kvs 1) (make-array power-of-two :element-type 'fixnum :initial-element 0))
         (%make-castable kvs (get-internal-real-time) test hash-function)))))
 
 (declaim (inline hash))
@@ -187,7 +186,7 @@
 ;; Not `int size()` from the original! This is more like HASH-TABLE-SIZE, as
 ;; it is the number of mappings that can be held right now.
 (defun size (table)
-  (/ (- (length (%castable-kvs table)) 4) 2))
+  (/ (- (length (%castable-kvs table)) 2) 2))
 
 ;; L281 int size()
 (defun count (table)
@@ -199,11 +198,28 @@
 (defun hash-function (table)
   (%castable-hasher table))
 
-;; Missing: putIfAbsent
+;; L321 TypeV putIfAbsent(TypeK, TypeV)
+(defun put-if-absent (table key value)
+  (multiple-value-bind (out present?)
+      (put-if-match table key value TOMBSTONE)
+    (declare (ignore out))
+    (not present?)))
 ;; Missing: containsValue
-;; Missing: replace
+;; L342 boolean replace(TypeK, TypeV)
+(defun put-if-present (table key value)
+  (multiple-value-bind (out present?)
+      (put-if-match table key value MATCH-ANY)
+    (if present?
+        (funcall (%castable-test table) out value)
+        nil)))
+;; L347 boolean replace(TypeK, TypeV, TypeV)
+(defun put-if-equal (table key new-value old-value)
+  (multiple-value-bind (out present?)
+      (put-if-match table key new-value old-value)
+    (if present?
+        (funcall (%castable-test table) old-value out)
+        nil)))
 ;; Missing: clone
-;; Missing: iteration
 
 ;; L313 put(TypeK, TypeV)
 (defun (setf gethash) (value key table &optional default)
@@ -220,11 +236,11 @@
       T))
 
 ;; Close to L334 boolean remove(Object, Object)
-(defun try-remhash (table key val &optional (test #'eql))
+(defun try-remhash (table key val)
   (multiple-value-bind (out present?)
       (put-if-match table key TOMBSTONE val)
     (if present?
-        (funcall test out val)
+        (funcall (%castable-test table) out val)
         nil)))
 ;; L352 TypeV putIfMatch(Object, Object, Object)
 (defun put-if-match (table key new old)
@@ -619,6 +635,7 @@
 
 (defmethod print-object ((table castable) stream)
   (print-unreadable-object (table stream :type t :identity t)
-    (format stream ":test ~s :count ~s"
+    (format stream ":test ~s :count ~s :size ~s"
             (test table)
-            (count table))))
+            (count table)
+            (size table))))

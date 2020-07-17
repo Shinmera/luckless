@@ -36,5 +36,9 @@
    #:hash-function
    #:gethash
    #:remhash
+   #:try-remhash
+   #:put-if-absent
+   #:put-if-equal
+   #:put-if-present
    #:clrhash
    #:maphash))
