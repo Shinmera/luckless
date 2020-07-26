@@ -14,7 +14,10 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defstruct (prime
               (:constructor prime (value)))
-    (value NIL :type T)))
+    (value NIL :type T))
+  (defmethod make-load-form ((prime prime) &optional environment)
+    (declare (ignore environment))
+    `(prime 'prime)))
 
 (defconstant max-spin 2)
 (defconstant reprobe-limit 10)
