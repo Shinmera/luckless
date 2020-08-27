@@ -65,6 +65,8 @@
   (resizers 0 :type fixnum)
   (copy-idx 0 :type fixnum)
   (copy-done 0 :type fixnum))
+(declaim (ftype (function (chm) fixnum)
+                %chm-resizers %chm-copy-idx %chm-copy-done))
 
 ;; L716, int size()
 (declaim (inline chm-size))
@@ -150,15 +152,16 @@
 (defun determine-hasher (test)
   (or (cond ((eq test #'eq)
              #+sbcl #'sb-impl::eq-hash
-             #-sbcl #'sxhash)
+             #+ccl #'ccl::%%eqhash)
             ((eq test #'eql)
              #+sbcl #'sb-impl::eql-hash
-             #-sbcl #'sxhash)
+             #+ccl #'ccl::%%eqlhash)
             ((eq test #'equal)
              #+sbcl #'sb-impl::equal-hash
              #-sbcl #'sxhash)
             ((eq test #'equalp)
              #+sbcl #'sb-impl::equalp-hash
+             #+ccl #'ccl::%%equalphash
              ;; FIXME: implement own equalp hash
              )
             (T
