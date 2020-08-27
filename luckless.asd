@@ -17,7 +17,8 @@
   :components ((:file "package")
                (:file "list")
                (:file "cat")
-               (:file "hashtable"))
+               (:file "hashtable")
+               (:file "documentation"))
   :depends-on (:atomics
                :documentation-utils)
   :in-order-to ((asdf:test-op (asdf:test-op :luckless-test))))

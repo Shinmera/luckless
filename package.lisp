@@ -4,8 +4,7 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(defpackage #:luckless-list
-  (:nicknames #:org.shirakumo.luckless.list)
+(defpackage #:org.shirakumo.luckless.list
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)
   (:shadow #:mapc #:first #:nth #:length #:push #:delete #:member)
@@ -21,8 +20,7 @@
    #:delete
    #:member))
 
-(defpackage #:luckless-hashtable
-  (:nicknames #:org.shirakumo.luckless.hashtable)
+(defpackage #:org.shirakumo.luckless.hashtable
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)
   (:shadow #:gethash #:remhash #:clrhash #:maphash #:count)
