@@ -228,10 +228,72 @@
 ;; Missing: clone
 
 ;; L313 put(TypeK, TypeV)
-(defun (setf gethash) (value key table &optional default)
+(defun (setf gethash) (value key table &optional default &key (if-exists :overwrite) (if-does-not-exist :overwrite))
   (declare (ignore default))
-  (put-if-match table key value NO-MATCH-OLD)
+  (ecase if-exists
+    (:overwrite
+     (ecase if-does-not-exist
+       (:overwrite
+        (put-if-match table key value NO-MATCH-OLD))
+       (:error
+        (unless (put-if-present table key value)
+          (error "Key does not exist in table.")))
+       ((NIL)
+        (put-if-present table key value))))
+    (:error
+     (ecase if-does-not-exist
+       (:overwrite
+        (unless (put-if-absent table key value)
+          (error "Key already exists in table.")))
+       (:error
+        (error "Key either does or does not exist in table."))
+       ((NIL)
+        (when (nth-value 1 (gethash key table))
+          (error "Key already exists in table.")))))
+    ((NIL)
+     (ecase if-does-not-exist
+       (:overwrite
+        (put-if-absent table key value))
+       (:error
+        (unless (nth-value 1 (gethash key table))
+          (error "Key does not exist in table.")))
+       ((NIL)
+        NIL))))
   value)
+
+(define-compiler-macro (setf gethash) (value key table &optional default &key (if-exists :overwrite) (if-does-not-exist :create))
+  (let ((v (gensym "VALUE")))
+    `(let ((,v ,value))
+       ,(ecase if-exists
+          (:overwrite
+           (ecase if-does-not-exist
+             (:create
+              `(put-if-match ,table ,key ,v NO-MATCH-OLD))
+             (:error
+              `(unless (put-if-present ,table ,key ,v)
+                 (error "Key does not exist in table.")))
+             ((NIL)
+              `(put-if-present ,table ,key ,v))))
+          (:error
+           (ecase if-does-not-exist
+             (:create
+              `(unless (put-if-absent ,table ,key ,v)
+                 (error "Key already exists in table.")))
+             (:error
+              `(error "Key either does or does not exist in table."))
+             ((NIL)
+              `(when (nth-value 1 (gethash ,key ,table))
+                 (error "Key already exists in table.")))))
+          ((NIL)
+           (ecase if-does-not-exist
+             (:create
+              `(put-if-absent ,table ,key ,v))
+             (:error
+              `(unless (nth-value 1 (gethash ,key ,table))
+                 (error "Key does not exist in table.")))
+             ((NIL)
+              NIL))))
+       ,v)))
 
 ;; Close to L329 TypeV remove(Object)
 ;; REMHASH returns true if there was a mapping and false otherwise, but
