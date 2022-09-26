@@ -1,0 +1,11 @@
+# About Luckless
+Luckless is a collection of lock-free data structures. Meaning: these structures only rely on CAS for their operation, which often ends up more efficient than equivalent methods using locks.
+
+Each data structure in Luckless is implemented in its own package, which exports symbols similar to existing Common Lisp symbols of similar structures. You are meant to create a package-local nickname of the structures' package and use them that way.
+
+## Implemented Structures
+The following data structures are currently implemented by the library:
+
+- ``caslist`` (MR|MW) a list or rather a stack-like object.
+- ``castable`` (MR|MW) a hash-table.
+- ``queue`` (SR|MW) a specialised event queue.
