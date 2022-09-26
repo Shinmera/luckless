@@ -11,7 +11,7 @@
 
 (in-package #:org.shirakumo.luckless.list)
 
-(defstruct (cons*
+(atomics:defstruct (cons*
             (:constructor cons* (car* cdr*))
             (:conc-name NIL))
   (car* NIL :type T)
@@ -22,7 +22,7 @@
   (print-unreadable-object (cons stream :type T :identity T)
     (format stream "~a ~[INVALID~;VALID~]" (car* cons) (valid cons))))
 
-(defstruct (caslist
+(atomics:defstruct (caslist
             (:constructor %make-caslist ())
             (:conc-name NIL))
   (head (cons* NIL NIL) :type cons*)

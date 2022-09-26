@@ -46,6 +46,7 @@
   (:import-from #:org.shirakumo.atomics #:cas)
   (:shadow #:push #:mapc #:length)
   (:export
+   #:queue
    #:make-queue
    #:queue-p
    #:push
