@@ -40,3 +40,15 @@
    #:put-if-present
    #:clrhash
    #:maphash))
+
+(defpackage #:org.shirakumo.luckless.queue
+  (:use #:cl)
+  (:import-from #:org.shirakumo.atomics #:cas)
+  (:shadow #:push #:mapc #:length)
+  (:export
+   #:make-queue
+   #:queue-p
+   #:push
+   #:discard
+   #:mapc
+   #:length))

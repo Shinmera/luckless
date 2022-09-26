@@ -18,6 +18,7 @@
                (:file "list")
                (:file "cat")
                (:file "hashtable")
+               (:file "queue")
                (:file "documentation"))
   :depends-on (:atomics
                :documentation-utils)
