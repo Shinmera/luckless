@@ -8,7 +8,8 @@
   (:nicknames #:org.shirakumo.luckless.test)
   (:local-nicknames
    (#:caslist #:org.shirakumo.luckless.list)
-   (#:castable #:org.shirakumo.luckless.hashtable))
+   (#:castable #:org.shirakumo.luckless.hashtable)
+   (#:casqueue #:org.shirakumo.luckless.queue))
   (:use #:cl #:parachute)
   (:export
    #:luckless
@@ -226,3 +227,64 @@
           (loop for i from idx below tries by threads
                 do (loop until (castable:remhash i table))))))
       (is = 0 (castable:count table)))))
+
+(define-test casqueue
+  :parent luckless)
+
+(define-test casqueue-multiple-writers
+  :parent casqueue
+  ;; Test for multiple writers, zero reader
+  (let ((queue (finish (casqueue:make-queue)))
+        (handles ())
+        (start NIL))
+    (unwind-protect
+         (progn
+           (dotimes (i threads)
+             (let ((tid i))
+               (push (bt:make-thread  (lambda ()
+                                        (loop until start)
+                                        (dotimes (i writes)
+                                          (casqueue:push (cons tid i) queue))))
+                     handles)))
+           (setf start T)
+           (dolist (handle handles)
+             (bt:join-thread handle)))
+      (dolist (handle handles)
+        (ignore-errors (bt:destroy-thread handle))))
+    (let ((found (make-hash-table :test 'eql)))
+      (loop for (tid . i) across (casqueue::queue-elements queue)
+            do (when tid (push i (gethash tid found))))
+      (dotimes (tid threads)
+        (let ((entries (gethash tid found)))
+          (dotimes (i writes)
+            (true (find i entries))))))))
+
+(define-test casqueue-multiple-writers-reader
+  :parent casqueue
+  (let ((queue (finish (casqueue:make-queue)))
+        (handles ())
+        (start NIL))
+    (unwind-protect
+         (progn
+           (dotimes (i threads)
+             (let ((tid i))
+               (push (bt:make-thread  (lambda ()
+                                        (loop until start)
+                                        (dotimes (i writes)
+                                          (casqueue:push (cons tid i) queue))))
+                     handles)))
+           (setf start T)
+           (let ((found (make-hash-table :test 'eql)))
+             (loop (casqueue:mapc (lambda (el)
+                                    (destructuring-bind (tid . i) el
+                                      (when tid (push i (gethash tid found)))))
+                                  queue)
+                   (when (loop for thread in handles never (bt:thread-alive-p thread))
+                     (return)))
+             ;; (format T "~&Size overhead ~d" (- (length (queue-elements queue)) (* threads writes)))
+             (dotimes (tid threads)
+               (let ((entries (gethash tid found)))
+                 (dotimes (i writes)
+                   (true (find i entries)))))))
+      (dolist (handle handles)
+        (bt:join-thread handle)))))
