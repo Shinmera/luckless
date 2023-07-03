@@ -1,20 +1,3 @@
-#|
- This file is a part of Luckless
- (c) 2022 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
- Author: Nicolas Hafner <shinmera@tymoon.eu>
-
- A lock-free single-reader multiple-writer queue that can resize.
- 
- This implementation is not based on any papers and instead
- manually devised. It is not proven correct, but appears
- correct in rigorous tests.
-
- Note:
- we spin in several locations, but this is preferable to locking,
- as we don't expect a lot of contention, and would vastly prefer
- the thread not be suspended at any time.
-|#
-
 (in-package #:org.shirakumo.luckless.queue)
 
 (atomics:defstruct (queue

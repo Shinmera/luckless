@@ -1,9 +1,3 @@
-#|
- This file is a part of Luckless
- (c) 2018 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
- Author: Nicolas Hafner <shinmera@tymoon.eu>
-|#
-
 (defpackage #:org.shirakumo.luckless.list
   (:use #:cl)
   (:import-from #:org.shirakumo.atomics #:cas)

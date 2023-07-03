@@ -1,14 +1,3 @@
-#|
- This file is a part of Luckless
- (c) 2018 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
- Author: Nicolas Hafner <shinmera@tymoon.eu>
-
- Based on:
-   A Lock-Free Wait-Free Hash Table
-   Cliff Click, Azul Systems, 2007
-     https://github.com/boundary/high-scale-lib/blob/master/src/main/java/org/cliffc/high_scale_lib/NonBlockingHashMap.java
-|#
-
 (in-package #:org.shirakumo.luckless.hashtable)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
