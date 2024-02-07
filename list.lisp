@@ -19,7 +19,8 @@
 
 (defmethod print-object ((list caslist) stream)
   (print-unreadable-object (list stream :type T :identity T)
-    (mapc* (lambda (value) (format stream "~a " value)) list)))
+    ;; NOTE: There was no MAPC* function. I changed this to MAPC.
+    (mapc (lambda (value) (format stream "~a " value)) list)))
 
 (defun caslist (&rest values)
   (declare (optimize speed))
@@ -32,6 +33,7 @@
 
 (declaim (inline mapc))
 (defun mapc (function list)
+  (declare (type function function))
   (declare (type caslist list))
   (declare (optimize speed))
   (loop for cons = (cdr* (head list)) then (cdr* cons)
@@ -47,23 +49,25 @@
   NIL)
 
 (defun nth (n list)
-  (declare (type unsigned-byte n))
+  (declare (type (and unsigned-byte fixnum) n))
   (declare (optimize speed))
   (let ((i 0))
+    (declare (type fixnum i))
     (mapc (lambda (value)
             (when (= i n)
               (return-from nth value))
             (incf i))
-           list)
+          list)
     NIL))
 
 (defun length (list)
   (declare (optimize speed))
   (let ((i 0))
+    (declare (type (and unsigned-byte fixnum) i))
     (mapc (lambda (_)
             (declare (ignore _))
             (incf i))
-           list)
+          list)
     i))
 
 (defun to-list (list)
@@ -96,7 +100,16 @@
   (declare (optimize speed))
   (let ((tail (tail list)))
     (loop (multiple-value-bind (right left) (search-cons value list)
-            (when (or (eq right tail) (not (eql value (car* right))))
+            (when (or (eq right tail) (not
+                                       ;; TODO: This avoids a generic EQL
+                                       ;; function being emitted as a compiler
+                                       ;; note. This may be avoidable, but VALUE
+                                       ;; can be any type, so just temporarily
+                                       ;; resetting the speed optimization until
+                                       ;; a better solution arises.
+                                       (let ((right-car (car* right)))
+                                         (locally (declare (optimize (speed 1)))
+                                           (eql value right-car)))))
               (return list))
             (let ((next (cdr* right)))
               (when (and (= 1 (valid right))
@@ -110,7 +123,10 @@
   (declare (optimize speed))
   (let ((right (search-cons value list)))
     (and (not (eq right (tail list)))
-         (eql (car* right) value))))
+         (let ((right-car (car* right)))
+           ;; FIXME: Again, same reason.
+           (locally (declare (optimize (speed 1)))
+             (eql right-car value))))))
 
 (defun search-cons (value list)
   (declare (type caslist list))
@@ -129,7 +145,10 @@
                        (return))
                      (setf next (cdr* cons))
                   while (or (= 0 (valid cons))
-                            (not (eql (car* cons) value))))
+                            (let ((cons-car (car* cons)))
+                              ;; FIXME: And again, same reason.
+                              (locally (declare (optimize (speed 1)))
+                                (not (eql cons-car value))))))
             (setf right cons)
             (when (or (eq left-next right)
                       (cas (cdr* left) left-next right))

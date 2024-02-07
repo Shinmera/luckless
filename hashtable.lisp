@@ -8,7 +8,6 @@
     (declare (ignore environment))
     `(prime 'prime)))
 
-(defconstant max-spin 2)
 (defconstant reprobe-limit 10)
 (defconstant min-size-log 3)
 (defconstant min-size (ash 1 min-size-log))
@@ -99,7 +98,7 @@
 
 (declaim (inline hashes))
 (declaim (ftype (function (simple-vector) (simple-array fixnum)) hashes))
-;; L139, static int[] hashes(Object[]) 
+;; L139, static int[] hashes(Object[])
 (defun hashes (kvs)
   (svref kvs 1))
 
@@ -193,6 +192,19 @@
 (defun hash-function (table)
   (%castable-hasher table))
 
+;; L699 Object[] help_copy(Object[])
+;; FIXME: Moved this earlier in the file because it is declared inline with uses
+;; in this file after this point.
+(declaim (inline help-copy))
+(defun help-copy (table helper)
+  (declare (type castable table))
+  (declare (optimize speed))
+  (let* ((topkvs (%castable-kvs table))
+         (topchm (chm topkvs)))
+    (unless (null (%chm-newkvs topchm))
+      (%help-copy topchm table topkvs NIL))
+    helper))
+
 ;; L321 TypeV putIfAbsent(TypeK, TypeV)
 (defun put-if-absent (table key value)
   (multiple-value-bind (out present?)
@@ -251,6 +263,7 @@
   value)
 
 (define-compiler-macro (setf gethash) (value key table &optional default &key (if-exists :overwrite) (if-does-not-exist :create))
+  (declare (ignorable default))
   (let ((v (gensym "VALUE")))
     `(let ((,v ,value))
        ,(ecase if-exists
@@ -433,10 +446,10 @@
     (when (eq put v) (return-from %put-if-match v))
     ;; Check if we want to move to a new table
     (when (and ;; Do we have a new table already?
-               (null newkvs)
-               ;; Check the value
-               (or (and (eq v NO-VALUE) (table-full-p chm reprobe-cnt len))
-                   (prime-p v)))
+           (null newkvs)
+           ;; Check the value
+           (or (and (eq v NO-VALUE) (table-full-p chm reprobe-cnt len))
+               (prime-p v)))
       (setf newkvs (resize chm table kvs)))
     ;; Check if we are indeed moving and retry
     (unless (null newkvs)
@@ -471,17 +484,6 @@
           ;; If we got a prime we need to restart from the beginning
           (when (prime-p v)
             (return (%put-if-match table (copy-slot-and-check chm table kvs idx exp) key put exp))))))
-
-;; L699 Object[] help_copy(Object[])
-(declaim (inline help-copy))
-(defun help-copy (table helper)
-  (declare (type castable table))
-  (declare (optimize speed))
-  (let* ((topkvs (%castable-kvs table))
-         (topchm (chm topkvs)))
-    (unless (null (%chm-newkvs topchm))
-      (%help-copy topchm table topkvs NIL))
-    helper))
 
 ;; L794 Object[] resize(NonBlockingHashMap, Object[])
 (defun resize (chm table kvs)
@@ -531,16 +533,22 @@
               do (setf r (%chm-resizers chm)))
         ;; Size calculation: 2 words per table + extra
         ;; NOTE: The original assumes 32 bit pointers, we conditionalise
-        (let ((megs (ash (ash (+ (* size 2) 4)
-                              #+64-BIT 4 #-64-BIT 3)
-                         -20)))
+        (let ((megs
+                ;; FIXME: Not sure what to do here to get rid of the
+                ;; intermediary bignum in the generated code.
+                (locally (declare (optimize (speed 1)))
+                  (ash (ash (+ (* size 2) 4)
+                            #+64-BIT 4 #-64-BIT 3)
+                       -20))))
           (declare (type fixnum megs))
           (when (and (<= 2 r) (< 0 megs))
             (setf newkvs (%chm-newkvs chm))
             (unless (null newkvs)
               (return-from resize newkvs))
             ;; We already have two threads trying a resize, wait
-            (sleep (/ (* 8 megs) 1000))))
+            ;; NOTE: Switched this from divide by 1000 to multiply by read-time
+            ;; reciprocal as a single-float to avoid missed optimizations.
+            (sleep (* 8 megs #.(/ 1000f0)))))
         ;; Last check
         (setf newkvs (%chm-newkvs chm))
         (unless (null newkvs)
