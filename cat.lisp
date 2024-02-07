@@ -14,6 +14,10 @@
   (fuzzy-time 0 :type fixnum)
   (table NIL :type simple-vector))
 
+;; NOTE: These constants were moved from hashtable.lisp because some of them are
+;; used here and undefined variables in their use.
+(defconstant max-spin 2)
+
 (defun make-cat (next size initial-element)
   (declare (type fixnum initial-element))
   (declare (type fixnum size))
@@ -27,6 +31,11 @@
   (declare (type fixnum mask))
   (declare (optimize speed))
   (let ((sum (%cat-sum-cache cat)))
+    ;; FIXME: This type declaration is questionable, but SBCL had problems
+    ;; joining fixnum with an unsigned-byte. Without it, somehow it was thinking
+    ;; (LOGNOT MASK) in the incrementing loop was a float, and making generic
+    ;; code.
+    (declare (type fixnum sum))
     (cond ((/= most-negative-fixnum sum)
            sum)
           (T
@@ -131,7 +140,7 @@
             (fail))
           ;; Did we try to allocate too often already?
           (when (/= 0 (ash r -17))
-            (sleep (/ (ash r -17) 1000))
+            (sleep (* (ash r -17) #.(/ 1000f0)))
             (unless (eql cat (%counter-cat counter))
               (fail)))
           ;; Try to extend the CAT once, if it fails another thread

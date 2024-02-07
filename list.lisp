@@ -19,7 +19,8 @@
 
 (defmethod print-object ((list caslist) stream)
   (print-unreadable-object (list stream :type T :identity T)
-    (mapc* (lambda (value) (format stream "~a " value)) list)))
+    ;; NOTE: There was no MAPC* function. I changed this to MAPC.
+    (mapc (lambda (value) (format stream "~a " value)) list)))
 
 (defun caslist (&rest values)
   (declare (optimize speed))
@@ -32,6 +33,7 @@
 
 (declaim (inline mapc))
 (defun mapc (function list)
+  (declare (type function function))
   (declare (type caslist list))
   (declare (optimize speed))
   (loop for cons = (cdr* (head list)) then (cdr* cons)
@@ -47,23 +49,25 @@
   NIL)
 
 (defun nth (n list)
-  (declare (type unsigned-byte n))
+  (declare (type (and unsigned-byte fixnum) n))
   (declare (optimize speed))
   (let ((i 0))
+    (declare (type fixnum i))
     (mapc (lambda (value)
             (when (= i n)
               (return-from nth value))
             (incf i))
-           list)
+          list)
     NIL))
 
 (defun length (list)
   (declare (optimize speed))
   (let ((i 0))
+    (declare (type (and unsigned-byte fixnum) i))
     (mapc (lambda (_)
             (declare (ignore _))
             (incf i))
-           list)
+          list)
     i))
 
 (defun to-list (list)
