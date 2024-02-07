@@ -533,13 +533,9 @@
               do (setf r (%chm-resizers chm)))
         ;; Size calculation: 2 words per table + extra
         ;; NOTE: The original assumes 32 bit pointers, we conditionalise
-        (let ((megs
-                ;; FIXME: Not sure what to do here to get rid of the
-                ;; intermediary bignum in the generated code.
-                (locally (declare (optimize (speed 1)))
-                  (ash (ash (+ (* size 2) 4)
+        (let ((megs (ash (ash (+ (* size 2) 4)
                             #+64-BIT 4 #-64-BIT 3)
-                       -20))))
+                       -20)))
           (declare (type fixnum megs))
           (when (and (<= 2 r) (< 0 megs))
             (setf newkvs (%chm-newkvs chm))

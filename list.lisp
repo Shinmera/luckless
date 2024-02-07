@@ -100,16 +100,7 @@
   (declare (optimize speed))
   (let ((tail (tail list)))
     (loop (multiple-value-bind (right left) (search-cons value list)
-            (when (or (eq right tail) (not
-                                       ;; TODO: This avoids a generic EQL
-                                       ;; function being emitted as a compiler
-                                       ;; note. This may be avoidable, but VALUE
-                                       ;; can be any type, so just temporarily
-                                       ;; resetting the speed optimization until
-                                       ;; a better solution arises.
-                                       (let ((right-car (car* right)))
-                                         (locally (declare (optimize (speed 1)))
-                                           (eql value right-car)))))
+            (when (or (eq right tail) (not (eql value (car* right))))
               (return list))
             (let ((next (cdr* right)))
               (when (and (= 1 (valid right))
@@ -123,10 +114,7 @@
   (declare (optimize speed))
   (let ((right (search-cons value list)))
     (and (not (eq right (tail list)))
-         (let ((right-car (car* right)))
-           ;; FIXME: Again, same reason.
-           (locally (declare (optimize (speed 1)))
-             (eql right-car value))))))
+         (eql (car* right) value))))
 
 (defun search-cons (value list)
   (declare (type caslist list))
@@ -145,10 +133,7 @@
                        (return))
                      (setf next (cdr* cons))
                   while (or (= 0 (valid cons))
-                            (let ((cons-car (car* cons)))
-                              ;; FIXME: And again, same reason.
-                              (locally (declare (optimize (speed 1)))
-                                (not (eql cons-car value))))))
+                            (not (eql (car* cons) value))))
             (setf right cons)
             (when (or (eq left-next right)
                       (cas (cdr* left) left-next right))
