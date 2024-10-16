@@ -139,7 +139,8 @@
 
 (defun determine-hasher (test)
   (or (cond ((eq test #'eq)
-             #+sbcl #'sb-impl::eq-hash
+             #+sbcl (function #.(or (find-symbol "EQ-HASH" "SB-IMPL")
+                                    (find-symbol "EQ-HASH/COMMON" "SB-IMPL")))
              #+ccl #'ccl::%%eqhash)
             ((eq test #'eql)
              #+sbcl #'sb-impl::eql-hash
