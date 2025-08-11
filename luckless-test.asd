@@ -4,9 +4,9 @@
   :author "Yukari Hafner <shinmera@tymoon.eu>"
   :maintainer "Yukari Hafner <shinmera@tymoon.eu>"
   :description "Test suite for Luckless"
-  :homepage "https://shinmera.github.io/luckless/"
-  :bug-tracker "https://github.com/Shinmera/luckless/issues"
-  :source-control (:git "https://github.com/Shinmera/luckless.git")
+  :homepage "https://shinmera.com/docs/luckless/"
+  :bug-tracker "https://shinmera.com/project/luckless/issues"
+  :source-control (:git "https://shinmera.com/project/luckless.git")
   :serial T
   :components ((:file "tests"))
   :depends-on (:luckless
